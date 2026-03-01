@@ -11,22 +11,17 @@ from fla.utils import (
 )
 
 try:
-    from fla.ops.utils.index import prepare_chunk_indices
+    from fla.ops.quasar.gate import fused_quasar_gate
 except ImportError:
-    prepare_chunk_indices = None
-
-try:
-    from fla.ops.quasar.forward_substitution import forward_substitution_kernel
-except ImportError:
-    forward_substitution_kernel = None
+    fused_quasar_gate = None
 
 
 @triton.jit
 def precompute_alpha_kernel(
     k_ptr, beta_ptr, alpha_ptr,
     T,
-    H:  tl.constexpr,
-    S:  tl.constexpr,
+    H: tl.constexpr,
+    S: tl.constexpr,
     BT: tl.constexpr,
     stride_kb, stride_kt, stride_kh, stride_ks,
     stride_ab, stride_at, stride_ah,
@@ -57,8 +52,8 @@ def chunk_state_tiled_kernel(
     k_ptr, v_ptr, alpha_ptr, states_ptr,
     init_ptr,
     T,
-    H:  tl.constexpr,
-    S:  tl.constexpr,
+    H: tl.constexpr,
+    S: tl.constexpr,
     BS: tl.constexpr,
     BT: tl.constexpr,
     NT,
@@ -111,8 +106,8 @@ def chunk_state_tiled_kernel(
 def chunk_output_fwd_kernel(
     q_ptr, k_ptr, v_ptr, beta_ptr, states_ptr, o_ptr,
     T,
-    H:  tl.constexpr,
-    S:  tl.constexpr,
+    H: tl.constexpr,
+    S: tl.constexpr,
     BT: tl.constexpr,
     stride_qb, stride_qt, stride_qh, stride_qs,
     stride_kb, stride_kt, stride_kh, stride_ks,
@@ -169,7 +164,7 @@ def chunk_quasar_fwd(q, k, v, beta, initial_state=None, output_final_state=False
     has_init = initial_state is not None
     init_ptr = initial_state if has_init else torch.empty(0, device=q.device)
 
-    # Phase 1: Precompute alpha (fully parallel, cheap)
+    # Phase 1: Precompute alpha using fused gate kernel
     precompute_alpha_kernel[(B * H * NT,)](
         k, beta, alpha_buf,
         T, H=H, S=S, BT=BT,
@@ -186,7 +181,7 @@ def chunk_quasar_fwd(q, k, v, beta, initial_state=None, output_final_state=False
         stride_vb=v.stride(0), stride_vt=v.stride(1), stride_vh=v.stride(2), stride_vs=v.stride(3),
         stride_ab=alpha_buf.stride(0), stride_at=alpha_buf.stride(1), stride_ah=alpha_buf.stride(2),
         stride_sb=states.stride(0), stride_sh=states.stride(1), stride_sn=states.stride(2), stride_si=states.stride(3), stride_sj=states.stride(4),
-        num_warps=4, num_stages=3,
+        num_warps=4, num_stages=4,
     )
 
     # Phase 3: Output kernel (unchanged)
