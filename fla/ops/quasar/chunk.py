@@ -160,7 +160,7 @@ class ChunkQuasarFunction(torch.autograd.Function):
     @staticmethod
     @autocast_custom_bwd
     def backward(ctx, do, d_final=None):
-        raise NotImplementedError("Backward not needed for mining")
+        return (None,) * 7
 
 
 @input_guard
