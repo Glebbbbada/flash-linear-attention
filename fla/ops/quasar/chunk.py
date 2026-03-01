@@ -133,7 +133,7 @@ def chunk_quasar_fwd(q, k, v, beta, initial_state=None, output_final_state=False
         stride_kb=k.stride(0), stride_kt=k.stride(1), stride_kh=k.stride(2), stride_ks=k.stride(3),
         stride_vb=v.stride(0), stride_vt=v.stride(1), stride_vh=v.stride(2), stride_vs=v.stride(3),
         stride_sb=states.stride(0), stride_sh=states.stride(1), stride_sn=states.stride(2), stride_si=states.stride(3), stride_sj=states.stride(4),
-        num_warps=8, num_stages=2,
+        num_warps=8, num_stages=3,
     )
     chunk_output_fwd_kernel[(NT, B * H)](
         q, k, v, beta, states, o,
